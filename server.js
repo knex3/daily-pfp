@@ -68,6 +68,23 @@ app.get("/today", (req, res) => {
 });
 
 /* ===============================
+   GET PFPs FOR A DATE
+   =============================== */
+app.get("/date/:date", (req, res) => {
+  const date = req.params.date;
+
+  const files = fs.readdirSync(uploadDir)
+    .filter(f => f.startsWith(date + "_"));
+
+  if (files.length !== 2) {
+    return res.json({ images: [] });
+  }
+
+  res.json({ images: files });
+});
+
+
+/* ===============================
    GET ALL DATES
    =============================== */
 app.get("/dates", (req, res) => {
