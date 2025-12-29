@@ -132,56 +132,30 @@ const dateInput = document.getElementById("dateInput");
 const deleteDate = document.getElementById("deleteDate");
 const title = document.getElementById("title");
 
-function loadDate(date) {
-  fetch("/pfps")
-  fetch("/today?date=" + date);
-
-  fetch("/pfps");
-  fetch("/dates");
-
-  fetch("/pfps");
-
-  fetch("/pfps");
-
-  fetch("/pfps");
-
-  fetch("/pfps");
-
-  fetch("/pfps");
-
-  fetch("/pfps");
-
-  fetch("/pfps");
-
-  fetch("/pfps");
-}
-
-function showImages(date) {
-  fetch("/pfps")
-  fetch("/today?date=" + date);
-
-  fetch("/pfps");
-}
-
-function loadImagesForDate(date) {
-  fetch("/pfps")
-  fetch("/today");
-
-  fetch("/today");
-}
-
-function displayImages(images) {
-  if (!images || images.length !== 2) return;
+function showImages(images) {
+  if (!images || images.length !== 2) {
+    pfp1.src = "";
+    pfp2.src = "";
+    return;
+  }
   pfp1.src = "/pfps/" + images[0];
   pfp2.src = "/pfps/" + images[1];
 }
 
-function fetchToday() {
-  fetch("/today")
+function loadDate(date) {
+  fetch("/date/" + date)
     .then(r => r.json())
-    .then(d => {
-      if (d.images) displayImages(d.images);
-    });
+    .then(d => showImages(d.images));
+
+  title.innerText = "Matching PFPs for " + date;
+  dateInput.value = date;
+  deleteDate.value = date;
+
+  document.querySelectorAll(".date-card")
+    .forEach(c => c.classList.remove("active"));
+
+  const active = document.querySelector(`[data-date="${date}"]`);
+  if (active) active.classList.add("active");
 }
 
 function buildSlider() {
@@ -194,48 +168,22 @@ function buildSlider() {
       dates.forEach(date => {
         const card = document.createElement("div");
         card.className = "date-card";
+        card.dataset.date = date;
         card.innerText = date;
 
         if (date === today) card.classList.add("active");
 
-        card.onclick = () => {
-          document.querySelectorAll(".date-card")
-            .forEach(c => c.classList.remove("active"));
-          card.classList.add("active");
-
-          dateInput.value = date;
-          deleteDate.value = date;
-          title.innerText = "Matching PFPs for " + date;
-
-          fetch("/pfps/" + date + "_a.jpg")
-            .then(() => {
-              fetch("/today")
-                .then(r => r.json())
-                .then(d => displayImages(d.images));
-            });
-        };
-
+        card.onclick = () => loadDate(date);
         slider.appendChild(card);
       });
+
+      // load today by default
+      loadDate(today);
     });
 }
 
 // INIT
-fetchToday();
 buildSlider();
-
-const todayDate = new Date().toISOString().split("T")[0];
-dateInput.value = todayDate;
-deleteDate.value = todayDate;
-
-const downloadBtn = document.getElementById("downloadBtn");
-
-downloadBtn.onclick = () => {
-  const date = dateInput.value;
-  if (!date) return alert("Select a date first");
-  window.location.href = "/download/" + date;
-};
-
 </script>
 
 </body>
