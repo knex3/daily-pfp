@@ -4,121 +4,122 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// folder to store pfps
 const uploadDir = path.join(__dirname, "pfps");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
-// multer temp storage
+app.use(express.static(__dirname));
+app.use("/pfps", express.static(uploadDir));
+app.use(express.urlencoded({ extended: true }));
+
 const storage = multer.diskStorage({
   destination: uploadDir,
   filename: (req, file, cb) => {
-    // temporary name, we rename later
     cb(null, Date.now() + "_" + file.originalname);
   }
 });
-
 const upload = multer({ storage });
 
-app.use(express.static(__dirname));
-app.use("/pfps", express.static(uploadDir));
-
 /* ===============================
-   UPLOAD ROUTE (AUTO PAIR)
+   UPLOAD FOR A DATE
    =============================== */
 app.post("/upload", upload.array("pfps", 2), (req, res) => {
+  const date = req.body.date;
   const files = req.files;
 
-  // must upload exactly 2 images
-  if (!files || files.length !== 2) {
-    return res.status(400).send("Upload exactly 2 images.");
+  if (!date || files.length !== 2) {
+    return res.status(400).send("Date + exactly 2 images required");
   }
 
-  // count existing pairs
-  const existingFiles = fs.readdirSync(uploadDir);
-  const pairCount = Math.floor(existingFiles.length / 2) + 1;
-  const pairId = String(pairCount).padStart(3, "0");
+  // delete existing for that date (overwrite)
+  fs.readdirSync(uploadDir).forEach(f => {
+    if (f.startsWith(date)) {
+      fs.unlinkSync(path.join(uploadDir, f));
+    }
+  });
 
-  const ext1 = path.extname(files[0].originalname);
-  const ext2 = path.extname(files[1].originalname);
-
-  // rename to locked pair names
-  fs.renameSync(
-    files[0].path,
-    path.join(uploadDir, `pair_${pairId}_a${ext1}`)
-  );
-
-  fs.renameSync(
-    files[1].path,
-    path.join(uploadDir, `pair_${pairId}_b${ext2}`)
-  );
+  files.forEach((file, i) => {
+    const ext = path.extname(file.originalname);
+    const suffix = i === 0 ? "a" : "b";
+    fs.renameSync(
+      file.path,
+      path.join(uploadDir, `${date}_${suffix}${ext}`)
+    );
+  });
 
   res.redirect("/");
 });
 
 /* ===============================
-   TODAY'S MATCHING PAIR
+   GET TODAY
    =============================== */
 app.get("/today", (req, res) => {
-  const files = fs.readdirSync(uploadDir).sort();
+  const today = new Date().toISOString().split("T")[0];
 
-  if (files.length < 2) {
+  const files = fs.readdirSync(uploadDir)
+    .filter(f => f.startsWith(today));
+
+  if (files.length !== 2) {
     return res.json({ images: [] });
   }
 
-  // group into pairs based on filename
-  const pairMap = {};
-  files.forEach(file => {
-    const match = file.match(/pair_(\d+)_([ab])/);
-    if (!match) return;
+  res.json({ images: files });
+});
 
-    const id = match[1];
-    if (!pairMap[id]) pairMap[id] = [];
-    pairMap[id].push(file);
+/* ===============================
+   GET ALL DATES
+   =============================== */
+app.get("/dates", (req, res) => {
+  const dates = new Set();
+
+  fs.readdirSync(uploadDir).forEach(f => {
+    const match = f.match(/^(\d{4}-\d{2}-\d{2})_/);
+    if (match) dates.add(match[1]);
   });
 
-  const pairs = Object.values(pairMap).filter(p => p.length === 2);
-  if (!pairs.length) return res.json({ images: [] });
+  res.json([...dates].sort());
+});
 
-  const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
-  const todayPair = pairs[day % pairs.length];
+/* ===============================
+   DELETE DATE
+   =============================== */
+app.post("/delete", (req, res) => {
+  const date = req.body.date;
 
-  res.json({ images: todayPair });
+  fs.readdirSync(uploadDir).forEach(f => {
+    if (f.startsWith(date)) {
+      fs.unlinkSync(path.join(uploadDir, f));
+    }
+  });
+
+  res.redirect("/");
 });
 
 const archiver = require("archiver");
 
-app.get("/download", (req, res) => {
-  const files = fs.readdirSync(uploadDir).sort();
+/* ===============================
+   DOWNLOAD FOR A DATE
+   =============================== */
+app.get("/download/:date", (req, res) => {
+  const date = req.params.date;
 
-  if (files.length < 2) {
-    return res.status(400).send("No pairs available");
+  const files = fs.readdirSync(uploadDir)
+    .filter(f => f.startsWith(date + "_"));
+
+  if (files.length !== 2) {
+    return res.status(400).send("No PFPs for this date");
   }
 
-  // group files into pairs
-  const pairMap = {};
-  files.forEach(file => {
-    const match = file.match(/pair_(\d+)_([ab])/);
-    if (!match) return;
-    const id = match[1];
-    if (!pairMap[id]) pairMap[id] = [];
-    pairMap[id].push(file);
-  });
-
-  const pairs = Object.values(pairMap).filter(p => p.length === 2);
-  if (!pairs.length) return res.status(400).send("No pairs found");
-
-  const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
-  const todayPair = pairs[day % pairs.length];
-
-  const today = new Date().toISOString().split("T")[0];
-  res.setHeader("Content-Disposition", `attachment; filename=matching_pfps_${today}.zip`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=pfps_${date}.zip`
+  );
 
   const archive = archiver("zip");
   archive.pipe(res);
 
-  todayPair.forEach(file => {
+  files.forEach(file => {
     archive.file(path.join(uploadDir, file), { name: file });
   });
 
@@ -126,6 +127,5 @@ app.get("/download", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log("const PORT = process.env.PORT || 3000;");
+  console.log(`Running on http://localhost:${PORT}`);
 });
-
