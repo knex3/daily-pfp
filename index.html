@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Daily Matching PFPs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #1b1b1b, #0b0b0b);
+      color: #ffffff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .card {
+      background: rgba(30, 30, 30, 0.95);
+      padding: 24px;
+      border-radius: 18px;
+      width: 360px;
+      max-width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      animation: fadeIn 0.6s ease;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 14px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .pfps {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .pfps img {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #444;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .pfps img:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 18px rgba(88, 101, 242, 0.7);
+    }
+
+    form {
+      margin-top: 18px;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      margin-bottom: 12px;
+      color: #ccc;
+    }
+
+    button {
+      background: linear-gradient(135deg, #5865f2, #4752c4);
+      border: none;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(88, 101, 242, 0.5);
+    }
+
+    .download {
+      margin-top: 12px;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .pfps {
+        flex-direction: column;
+        gap: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h2>Today's Matching PFPs</h2>
+
+    <div class="pfps">
+      <img id="pfp1" />
+      <img id="pfp2" />
+    </div>
+
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+      <input type="file" name="pfps" accept="image/*" multiple required />
+      <button type="submit">Upload Pair</button>
+    </form>
+
+    <div class="download">
+      <a href="/download">
+        <button type="button">Download Today’s Pair</button>
+      </a>
+    </div>
+  </div>
+
+  <script>
+    fetch("/today")
+      .then(res => res.json())
+      .then(data => {
+        if (!data.images || data.images.length < 2) return;
+        document.getElementById("pfp1").src = "/pfps/" + data.images[0];
+        document.getElementById("pfp2").src = "/pfps/" + data.images[1];
+      });
+  </script>
+</body>
+</html>
